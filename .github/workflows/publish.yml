@@ -1,0 +1,58 @@
+name: Publish PETSc Docker Image
+
+on:
+  push:
+    branches:
+      - main       # Trigger on pushes to main
+    tags:
+      - 'v*'       # Trigger on version tags like v1.0, v2.3
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write    # Required to push to GHCR
+      id-token: write
+
+    env:
+      IMAGE_NAME: ghcr.io/${{ github.repository }}-main  # e.g., ghcr.io/username/repo-petsc
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: List files
+        run: ls -l
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.petsc-main   # Adjust if your Dockerfile is named differently
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            PETSC_DIR=/petsc
+            PETSC_ARCH=arch-linux-x64-opt

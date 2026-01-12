@@ -1,0 +1,36 @@
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm
+
+WORKDIR /
+
+ARG PETSC_GIT_BRANCH=main
+ARG PETSC_ARCH=arch-linux-x64-opt
+ENV PETSC_DIR=${WORKDIR}/petsc
+ENV PETSC_ARCH=${PETSC_ARCH}
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    git \
+    make \
+    gcc \
+    g++ \
+    file \
+    && rm -rf /var/lib/apt/lists/*
+
+
+RUN git clone --depth=1 --branch=$PETSC_GIT_BRANCH https://gitlab.com/petsc/petsc.git && \
+  cd petsc && \
+  OPT='-O2 -march=x86-64'; \
+  python3 configure \
+    --with-cxx-dialect=C++14 \
+    --with-debugging=0 COPTFLAGS="$OPT" CXXOPTFLAGS="$OPT" FOPTFLAGS="$OPT" \
+    --download-mpich \
+    --with-fc=0 \
+    --download-f2cblaslapack \
+    && \
+  make
+
+RUN chown -R $DOCKER_USER:$DOCKER_GROUP $PETSC_DIR
+
+WORKDIR $PETSC_DIR 
+
+LABEL maintainer='Hong Zhang <hongzhang@anl.gov>'
